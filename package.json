@@ -1,0 +1,27 @@
+{
+  "name": "psyalien-shopsystem",
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [
+    "RFID",
+    "UHF",
+    "CCTV",
+    "shop",
+    "security"
+  ],
+  "homepage": "https://github.com/LeXuS-Azazello/Psyalien_shopsystem#readme",
+  "bugs": {
+    "url": "https://github.com/LeXuS-Azazello/Psyalien_shopsystem/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeXuS-Azazello/Psyalien_shopsystem.git"
+  },
+  "license": "ISC",
+  "author": "soldatoff@debug.org.ua",
+  "type": "commonjs",
+  "main": "server.ts",
+  "scripts": {
+    "test": "devices"
+  }
+}
