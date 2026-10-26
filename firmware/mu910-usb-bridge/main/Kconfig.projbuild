@@ -1,0 +1,13 @@
+menu "MU910 USB UART bridge"
+
+config MU910_UART_TX_GPIO
+    int "ESP32 UART TX GPIO connected to MU910 RXD"
+    range 0 48
+    default 10
+
+config MU910_UART_RX_GPIO
+    int "ESP32 UART RX GPIO connected to MU910 TXD"
+    range 0 48
+    default 11
+
+endmenu

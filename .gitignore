@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+data/
+.env
+.env.*
+!.env.example
+sdkconfig
+sdkconfig.old
+managed_components/
+__pycache__/
+*.py[cod]

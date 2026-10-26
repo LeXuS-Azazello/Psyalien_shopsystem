@@ -1,0 +1,32 @@
+menu "MU910-M Reader"
+
+config MU910_UART_TX_GPIO
+    int "ESP32 TX GPIO connected to MU910-M RXD"
+    range 0 48
+    default 11
+
+config MU910_UART_RX_GPIO
+    int "ESP32 RX GPIO connected to MU910-M TXD"
+    range 0 48
+    default 10
+
+config MU910_ENABLE_INVENTORY
+    bool "Enable RF inventory after module identification"
+    default n
+    help
+        Leave disabled until the antenna frequency band, RF connector path,
+        and local regulatory requirements have been confirmed.
+
+config MU910_INVENTORY_DURATION_SEC
+    int "Inventory burst duration in seconds"
+    depends on MU910_ENABLE_INVENTORY
+    range 1 30
+    default 5
+
+config MU910_INVENTORY_COOLDOWN_SEC
+    int "Cooldown between inventory bursts in seconds"
+    depends on MU910_ENABLE_INVENTORY
+    range 1 60
+    default 5
+
+endmenu
