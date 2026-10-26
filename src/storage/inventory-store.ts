@@ -896,7 +896,43 @@ export class SqliteInventoryStore implements InventoryStore {
         409,
       );
     }
+
+    this.ensureTagRegistered(event.epc);
+
     return { status: "accepted" };
+  }
+
+  ensureTagRegistered(epc: string): void {
+    const existing = this.database
+      .prepare("SELECT epc FROM tags WHERE epc = ?")
+      .get(epc);
+    if (existing) return;
+
+    const suffix = epc.slice(-8);
+    const sku = `RFID-${suffix}`;
+    const name = `Tag ${suffix}`;
+    const productId = randomUUID();
+    const createdAt = new Date().toISOString();
+
+    this.database.transaction(() => {
+      this.database
+        .prepare(
+          "INSERT OR IGNORE INTO products (id, sku, name, created_at) VALUES (?, ?, ?, ?)",
+        )
+        .run(productId, sku, name, createdAt);
+      this.database
+        .prepare(
+          "INSERT OR IGNORE INTO tags (epc, product_id, created_at) VALUES (?, ?, ?)",
+        )
+        .run(epc, productId, createdAt);
+      this.database
+        .prepare(
+          `INSERT INTO tag_assignment_history
+             (assignment_id, epc, product_id, action, occurred_at)
+           VALUES (?, ?, ?, 'assigned', ?)`,
+        )
+        .run(randomUUID(), epc, productId, createdAt);
+    })();
   }
 
   close(): void {

@@ -485,6 +485,15 @@ const pageLabels: Record<PageId, string> = {
   guide: "User guide / FAQ",
 };
 
+function pageFromHash(hash: string): PageId {
+  const page = hash.replace(/^#/, "").split("/")[0] as PageId;
+  return page in pageLabels ? page : "overview";
+}
+
+function hashForPage(page: PageId): string {
+  return `#/${page}`;
+}
+
 function pageSubtitle(page: PageId): string {
   switch (page) {
     case "overview":
@@ -674,7 +683,9 @@ function InventoryMovementPanel({
 }
 
 export default function App() {
-  const [activePage, setActivePage] = useState<PageId>("overview");
+  const [activePage, setActivePage] = useState<PageId>(
+    typeof window !== "undefined" ? pageFromHash(window.location.hash) : "overview",
+  );
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -683,6 +694,21 @@ export default function App() {
   const [activeToken, setActiveToken] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const refreshGeneration = useRef(0);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      setActivePage(pageFromHash(window.location.hash));
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  function navigate(page: PageId) {
+    setActivePage(page);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", hashForPage(page));
+    }
+  }
 
   useEffect(() => {
     const handleUnauthorized = () => {
@@ -767,7 +793,7 @@ export default function App() {
     setError(null);
     setNeedsToken(true);
     setLoadState("loading");
-    setActivePage("overview");
+    navigate("overview");
     setActiveToken("");
     clearTokenStorage();
     void refresh("");
@@ -799,7 +825,7 @@ export default function App() {
               className={`nav-item${activePage === page ? " nav-active" : ""}`}
               key={page}
               type="button"
-              onClick={() => setActivePage(page)}
+              onClick={() => navigate(page)}
               aria-current={activePage === page ? "page" : undefined}
             >
               <span className="nav-icon nav-letter" aria-hidden="true">{page === "readers" ? "R" : page === "guide" ? "?" : page[0]?.toUpperCase()}</span>

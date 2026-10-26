@@ -308,58 +308,94 @@ test("reconciles registered RFID tags for one reader and time window", async (co
     });
   }
 
+  const autoTagBcaa = (await store.listTags()).find(
+    (tag) => tag.epc === "E28068940000502C6FE3BCAA",
+  );
+  const autoTagBcab = (await store.listTags()).find(
+    (tag) => tag.epc === "E28068940000502C6FE3BCAB",
+  );
+  assert.ok(autoTagBcaa, "E28068940000502C6FE3BCAA should be auto-registered");
+  assert.ok(autoTagBcab, "E28068940000502C6FE3BCAB should be auto-registered");
+
   const reconciliation = await fetch(
     `${baseUrl}/api/v1/inventory/reconciliation?readerId=stocktake-reader&from=2026-10-26T02%3A00%3A00Z&to=2026-10-26T03%3A00%3A00Z`,
   );
   assert.equal(reconciliation.status, 200);
-  assert.deepEqual(
-    (await reconciliation.json()) as {
-      data: {
-        readerId: string;
-        products: Array<{
-          sku: string;
-          registeredTagCount: number;
-          seenTagCount: number;
-          unseenTagCount: number;
-          lastSeenAt: string | null;
-        }>;
-        totals: {
-          registeredTagCount: number;
-          seenTagCount: number;
-          unseenTagCount: number;
-          unassignedEpcCount: number;
-          unassignedEpcs: string[];
-          unassignedListTruncated: boolean;
-        };
+  const result = (await reconciliation.json()) as {
+    data: {
+      readerId: string;
+      from: string;
+      to: string;
+      products: Array<{
+        productId: string;
+        sku: string;
+        name: string;
+        registeredTagCount: number;
+        seenTagCount: number;
+        unseenTagCount: number;
+        lastSeenAt: string | null;
+      }>;
+      totals: {
+        registeredTagCount: number;
+        seenTagCount: number;
+        unseenTagCount: number;
+        unassignedEpcCount: number;
+        unassignedEpcs: string[];
+        unassignedListTruncated: boolean;
       };
-    },
-    {
-      data: {
-        readerId: "stocktake-reader",
-        from: "2026-10-26T02:00:00.000Z",
-        to: "2026-10-26T03:00:00.000Z",
-        products: [
-          {
-            productId: product.data.id,
-            sku: "SKU-RECON",
-            name: "Reconciliation test",
-            registeredTagCount: 2,
-            seenTagCount: 1,
-            unseenTagCount: 1,
-            lastSeenAt: "2026-10-26T02:31:00.000Z",
-          },
-        ],
-        totals: {
-          registeredTagCount: 2,
-          seenTagCount: 1,
-          unseenTagCount: 1,
-          unassignedEpcCount: 1,
-          unassignedEpcs: ["E28068940000502C6FE3BCAA"],
-          unassignedListTruncated: false,
-        },
+    };
+  };
+  assert.equal(result.data.readerId, "stocktake-reader");
+  assert.equal(result.data.from, "2026-10-26T02:00:00.000Z");
+  assert.equal(result.data.to, "2026-10-26T03:00:00.000Z");
+  assert.deepEqual(
+    result.data.products.map((product) => ({
+      productId: product.productId,
+      sku: product.sku,
+      name: product.name,
+      registeredTagCount: product.registeredTagCount,
+      seenTagCount: product.seenTagCount,
+      unseenTagCount: product.unseenTagCount,
+      lastSeenAt: product.lastSeenAt,
+    })),
+    [
+      {
+        productId: autoTagBcaa?.productId ?? "",
+        sku: "RFID-6FE3BCAA",
+        name: "Tag 6FE3BCAA",
+        registeredTagCount: 1,
+        seenTagCount: 1,
+        unseenTagCount: 0,
+        lastSeenAt: "2026-10-26T02:32:00.000Z",
       },
-    },
+      {
+        productId: autoTagBcab?.productId ?? "",
+        sku: "RFID-6FE3BCAB",
+        name: "Tag 6FE3BCAB",
+        registeredTagCount: 1,
+        seenTagCount: 0,
+        unseenTagCount: 1,
+        lastSeenAt: null,
+      },
+      {
+        productId: product.data.id,
+        sku: "SKU-RECON",
+        name: "Reconciliation test",
+        registeredTagCount: 2,
+        seenTagCount: 1,
+        unseenTagCount: 1,
+        lastSeenAt: "2026-10-26T02:31:00.000Z",
+      },
+    ],
   );
+  assert.deepEqual(result.data.totals, {
+    registeredTagCount: 4,
+    seenTagCount: 2,
+    unseenTagCount: 2,
+    unassignedEpcCount: 0,
+    unassignedEpcs: [],
+    unassignedListTruncated: false,
+  });
 
   const invalidRange = await fetch(
     `${baseUrl}/api/v1/inventory/reconciliation?readerId=stocktake-reader&from=2026-10-27T00%3A00%3A00Z&to=2026-10-26T00%3A00%3A00Z`,
