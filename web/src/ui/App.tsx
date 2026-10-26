@@ -27,6 +27,42 @@ const dateFormat = new Intl.DateTimeFormat("en", {
   minute: "2-digit",
 });
 
+const TOKEN_KEY = "psyalien_api_token";
+const TOKEN_TS_KEY = "psyalien_api_token_ts";
+const MAX_TOKEN_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function loadSavedToken(): { token: string; ts: number } | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const ts = localStorage.getItem(TOKEN_TS_KEY);
+    if (!token || !ts) return null;
+    return { token, ts: Number(ts) };
+  } catch {
+    return null;
+  }
+}
+
+function saveToken(token: string): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(TOKEN_TS_KEY, String(Date.now()));
+  } catch {
+    // localStorage unavailable; token stays in memory only.
+  }
+}
+
+function clearTokenStorage(): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_TS_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 function formatDate(value: string | null | undefined): string {
   if (!value) return "No recorded sighting";
   const date = new Date(value);
@@ -657,8 +693,20 @@ export default function App() {
       setError("Access was rejected. Enter the shared API token again.");
       setLoadState("error");
       setActiveToken((token) => token ? "" : token);
+      clearTokenStorage();
     };
     window.addEventListener("shopsystem:unauthorized", handleUnauthorized);
+
+    // Auto-login from saved token (valid for 30 days).
+    const saved = loadSavedToken();
+    if (saved && Date.now() - saved.ts < MAX_TOKEN_AGE_MS) {
+      setActiveToken(saved.token);
+      setTokenInput("");
+    } else {
+      clearTokenStorage();
+      setNeedsToken(true);
+    }
+
     return () => window.removeEventListener("shopsystem:unauthorized", handleUnauthorized);
   }, []);
 
@@ -709,6 +757,7 @@ export default function App() {
     setNeedsToken(true);
     setActiveToken(nextToken);
     setTokenInput("");
+    saveToken(nextToken);
   }
 
   function signOut() {
@@ -720,6 +769,7 @@ export default function App() {
     setLoadState("loading");
     setActivePage("overview");
     setActiveToken("");
+    clearTokenStorage();
     void refresh("");
   }
 

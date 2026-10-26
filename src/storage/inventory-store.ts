@@ -655,14 +655,36 @@ export class SqliteInventoryStore implements InventoryStore {
            VALUES (?, ?, ?, NULL)`,
         )
         .run(session.sessionId, session.readerId, session.startedAt);
-      this.database
-        .prepare(
-          `INSERT INTO inventory_session_tags (session_id, epc, product_id)
-           SELECT ?, epc, product_id FROM tags`,
-        )
-        .run(session.sessionId);
+      this.snapshotSessionTags(session.sessionId);
       return session;
     })();
+  }
+
+  snapshotSessionTags(sessionId: string): void {
+    this.database
+      .prepare(
+        `INSERT INTO inventory_session_tags (session_id, epc, product_id)
+         SELECT ?, epc, product_id FROM tags`,
+      )
+      .run(sessionId);
+  }
+
+  snapshotSessionScanEvents(
+    sessionId: string,
+    readerId: string,
+    startedAt: string,
+    closedAt: string,
+  ): void {
+    this.database
+      .prepare(
+        `INSERT INTO inventory_session_scan_events (session_id, event_id)
+         SELECT ?, event_id
+         FROM scan_events
+         WHERE reader_id = ?
+           AND observed_at >= ?
+           AND observed_at <= ?`,
+      )
+      .run(sessionId, readerId, startedAt, closedAt);
   }
 
   async listInventorySessions(limit: number): Promise<InventorySession[]> {
@@ -692,16 +714,12 @@ export class SqliteInventoryStore implements InventoryStore {
       }
 
       const closedAt = new Date().toISOString();
-      this.database
-        .prepare(
-          `INSERT INTO inventory_session_scan_events (session_id, event_id)
-           SELECT ?, event_id
-           FROM scan_events
-           WHERE reader_id = ?
-             AND observed_at >= ?
-             AND observed_at <= ?`,
-        )
-        .run(sessionId, existing.readerId, existing.startedAt, closedAt);
+      this.snapshotSessionScanEvents(
+        sessionId,
+        existing.readerId,
+        existing.startedAt,
+        closedAt,
+      );
       this.database
         .prepare(
           "UPDATE inventory_sessions SET closed_at = ? WHERE session_id = ? AND closed_at IS NULL",

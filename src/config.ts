@@ -3,6 +3,7 @@ export interface AppConfig {
   port: number;
   apiToken?: string;
   databasePath: string;
+  redisUrl?: string;
   mqttEnabled: boolean;
   mqttUrl: string;
   mqttTopic: string;
@@ -68,11 +69,13 @@ export function loadAppConfig(env: NodeJS.ProcessEnv): AppConfig {
       "API_TOKEN is required when HTTP_HOST exposes the API beyond localhost",
     );
   }
+  const redisUrl = env.REDIS_URL?.trim();
 
   return {
     host,
     port,
     ...(apiToken ? { apiToken } : {}),
+    ...(redisUrl ? { redisUrl } : {}),
     databasePath: valueOrDefault(env, "DATABASE_PATH", "./data/psyalien.sqlite"),
     mqttEnabled,
     mqttUrl: validateUrl(
