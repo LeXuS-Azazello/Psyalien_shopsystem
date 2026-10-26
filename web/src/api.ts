@@ -2,6 +2,7 @@ export interface InventoryRow {
   productId: string;
   sku: string;
   name: string;
+  price: number;
   onHand: number;
   tagCount: number;
   seenTagCount: number;
@@ -37,6 +38,7 @@ export interface Product {
   id: string;
   sku: string;
   name: string;
+  price: number;
   createdAt: string;
 }
 
@@ -218,10 +220,11 @@ export async function createProduct(
   token: string,
   sku: string,
   name: string,
+  price = 0,
 ): Promise<Product> {
   return requestData<Product>("/api/v1/products", token, {
     method: "POST",
-    body: JSON.stringify({ sku, name }),
+    body: JSON.stringify({ sku, name, price }),
   });
 }
 
@@ -230,10 +233,11 @@ export async function updateProduct(
   id: string,
   sku: string,
   name: string,
+  price = 0,
 ): Promise<Product> {
   return requestData<Product>(`/api/v1/products/${encodeURIComponent(id)}`, token, {
     method: "PUT",
-    body: JSON.stringify({ sku, name }),
+    body: JSON.stringify({ sku, name, price }),
   });
 }
 

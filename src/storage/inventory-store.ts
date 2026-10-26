@@ -8,6 +8,7 @@ export interface Product {
   id: string;
   sku: string;
   name: string;
+  price: number;
   createdAt: string;
 }
 
@@ -33,6 +34,7 @@ export interface InventorySummary {
   productId: string;
   sku: string;
   name: string;
+  price: number;
   onHand: number;
   tagCount: number;
   seenTagCount: number;
@@ -63,6 +65,7 @@ export interface InventoryReconciliation {
     productId: string;
     sku: string;
     name: string;
+    price: number;
     registeredTagCount: number;
     seenTagCount: number;
     unseenTagCount: number;
@@ -159,6 +162,7 @@ function toProduct(row: SqlRow): Product {
     id: String(row["id"]),
     sku: String(row["sku"]),
     name: String(row["name"]),
+    price: Number(row["price"] ?? 0),
     createdAt: String(row["created_at"]),
   };
 }
@@ -319,16 +323,29 @@ export class SqliteInventoryStore implements InventoryStore {
           .run(5, new Date().toISOString());
       })();
     }
+    const productPriceMigrationApplied = this.database
+      .prepare("SELECT version FROM schema_migrations WHERE version = ?")
+      .get(6);
+    if (!productPriceMigrationApplied) {
+      this.database.transaction(() => {
+        this.database.exec(readMigration("0006_product_price.sql"));
+        this.database
+          .prepare(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+          )
+          .run(6, new Date().toISOString());
+      })();
+    }
   }
 
   async listProducts(): Promise<Product[]> {
     return this.database
-      .prepare("SELECT id, sku, name, created_at FROM products ORDER BY sku")
+      .prepare("SELECT id, sku, name, price, created_at FROM products ORDER BY sku")
       .all()
       .map((row) => toProduct(row as SqlRow));
   }
 
-  async createProduct(sku: string, name: string): Promise<Product> {
+  async createProduct(sku: string, name: string, price = 0): Promise<Product> {
     const existing = this.database
       .prepare("SELECT id FROM products WHERE sku = ?")
       .get(sku);
@@ -340,19 +357,20 @@ export class SqliteInventoryStore implements InventoryStore {
       id: randomUUID(),
       sku,
       name,
+      price,
       createdAt: new Date().toISOString(),
     };
     this.database
       .prepare(
-        "INSERT INTO products (id, sku, name, created_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO products (id, sku, name, price, created_at) VALUES (?, ?, ?, ?, ?)",
       )
-      .run(product.id, product.sku, product.name, product.createdAt);
+      .run(product.id, product.sku, product.name, product.price, product.createdAt);
     return product;
   }
 
-  async updateProduct(id: string, sku: string, name: string): Promise<Product> {
+  async updateProduct(id: string, sku: string, name: string, price = 0): Promise<Product> {
     const existing = this.database
-      .prepare("SELECT id, sku, name, created_at FROM products WHERE id = ?")
+      .prepare("SELECT id, sku, name, price, created_at FROM products WHERE id = ?")
       .get(id) as SqlRow | undefined;
     if (!existing) {
       throw new StoreError("Product not found", 404);
@@ -366,12 +384,13 @@ export class SqliteInventoryStore implements InventoryStore {
     }
 
     this.database
-      .prepare("UPDATE products SET sku = ?, name = ? WHERE id = ?")
-      .run(sku, name, id);
+      .prepare("UPDATE products SET sku = ?, name = ?, price = ? WHERE id = ?")
+      .run(sku, name, price, id);
     return {
       id,
       sku,
       name,
+      price,
       createdAt: String(existing["created_at"]),
     };
   }
@@ -383,6 +402,7 @@ export class SqliteInventoryStore implements InventoryStore {
            p.id AS product_id,
            p.sku,
            p.name,
+           p.price AS price,
            COALESCE(m.on_hand, 0) AS on_hand,
            COUNT(DISTINCT t.epc) AS tag_count,
            COUNT(DISTINCT CASE WHEN s.event_id IS NOT NULL THEN t.epc END) AS seen_tag_count,
@@ -405,6 +425,7 @@ export class SqliteInventoryStore implements InventoryStore {
           productId: String(summary["product_id"]),
           sku: String(summary["sku"]),
           name: String(summary["name"]),
+          price: Number(summary["price"] ?? 0),
           onHand: Number(summary["on_hand"]),
           tagCount: Number(summary["tag_count"]),
           seenTagCount: Number(summary["seen_tag_count"]),
@@ -542,6 +563,7 @@ export class SqliteInventoryStore implements InventoryStore {
            p.id AS product_id,
            p.sku,
            p.name,
+           p.price AS price,
            COUNT(DISTINCT t.epc) AS registered_tag_count,
            COUNT(DISTINCT CASE WHEN rs.epc IS NOT NULL THEN t.epc END) AS seen_tag_count,
            MAX(rs.last_seen_at) AS last_seen_at
@@ -560,6 +582,7 @@ export class SqliteInventoryStore implements InventoryStore {
           productId: String(result["product_id"]),
           sku: String(result["sku"]),
           name: String(result["name"]),
+          price: Number(result["price"] ?? 0),
           registeredTagCount,
           seenTagCount,
           unseenTagCount: registeredTagCount - seenTagCount,

@@ -84,6 +84,7 @@ test("exposes own product, tag, and scan-event API", async (context) => {
     (await inventory.json()) as {
       data: Array<{
         sku: string;
+        name: string;
         tagCount: number;
         seenTagCount: number;
         onHand: number;
@@ -96,6 +97,7 @@ test("exposes own product, tag, and scan-event API", async (context) => {
           productId: productPayload.data.id,
           sku: "SKU-001",
           name: "Sample product",
+          price: 0,
           onHand: 0,
           tagCount: 1,
           seenTagCount: 0,
@@ -148,6 +150,7 @@ test("exposes own product, tag, and scan-event API", async (context) => {
       productId: productPayload.data.id,
       sku: "SKU-001",
       name: "Sample product",
+      price: 0,
       onHand: 0,
       tagCount: 1,
       seenTagCount: 1,
@@ -679,6 +682,7 @@ test("updates products through the API without allowing protected fields to chan
       id: original.data.id,
       sku: "SKU-EDITED",
       name: "Updated name",
+      price: 0,
       createdAt: original.data.createdAt,
     },
   });

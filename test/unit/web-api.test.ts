@@ -197,13 +197,13 @@ test("product create and edit requests stay same-origin and use the in-memory to
         url: "/api/v1/products",
         method: "POST",
         hasAuthorization: true,
-        body: JSON.stringify({ sku: "SKU-001", name: "Utility jacket" }),
+        body: JSON.stringify({ sku: "SKU-001", name: "Utility jacket", price: 0 }),
       },
       {
         url: "/api/v1/products/product-1",
         method: "PUT",
         hasAuthorization: true,
-        body: JSON.stringify({ sku: "SKU-002", name: "Field jacket" }),
+        body: JSON.stringify({ sku: "SKU-002", name: "Field jacket", price: 0 }),
       },
     ]);
   } finally {

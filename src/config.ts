@@ -10,6 +10,17 @@ export interface AppConfig {
   mqttClientId: string;
   mqttUsername?: string;
   mqttPassword?: string;
+  rfidCf601Enabled: boolean;
+  rfidCf601SerialPort: string;
+  rfidCf601SerialBaud: number;
+  rfidCf601ApiUrl: string;
+  rfidCf601ApiToken: string;
+  rfidCf601ReaderId: string;
+  rfidMu910Enabled: boolean;
+  rfidMu910UartBaud: number;
+  rfidMu910ApiUrl: string;
+  rfidMu910ApiToken: string;
+  rfidMu910ReaderId: string;
 }
 
 function valueOrDefault(
@@ -19,6 +30,14 @@ function valueOrDefault(
 ): string {
   const value = env[key]?.trim();
   return value || fallback;
+}
+
+function booleanFlag(env: NodeJS.ProcessEnv, key: string): boolean {
+  const value = env[key]?.trim().toLowerCase();
+  if (value === undefined || value === "") return false;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`${key} must be true or false`);
 }
 
 function validateUrl(value: string, name: string, protocols: string[]): string {
@@ -70,6 +89,8 @@ export function loadAppConfig(env: NodeJS.ProcessEnv): AppConfig {
     );
   }
   const redisUrl = env.REDIS_URL?.trim();
+  const rfidCf601Enabled = booleanFlag(env, "RFID_CF601_ENABLED");
+  const rfidMu910Enabled = booleanFlag(env, "RFID_MU910_ENABLED");
 
   return {
     host,
@@ -88,5 +109,16 @@ export function loadAppConfig(env: NodeJS.ProcessEnv): AppConfig {
     ...(mqttEnabled && mqttUsername && mqttPassword
       ? { mqttUsername, mqttPassword }
       : {}),
+    rfidCf601Enabled,
+    rfidCf601SerialPort: valueOrDefault(env, "RFID_CF601_SERIAL_PORT", "/dev/ttyACM0"),
+    rfidCf601SerialBaud: Number(valueOrDefault(env, "RFID_CF601_SERIAL_BAUD", "115200")),
+    rfidCf601ApiUrl: valueOrDefault(env, "RFID_CF601_API_URL", ""),
+    rfidCf601ApiToken: env.RFID_CF601_API_TOKEN?.trim() ?? "",
+    rfidCf601ReaderId: valueOrDefault(env, "RFID_CF601_READER_ID", "cf601-cf000701"),
+    rfidMu910Enabled,
+    rfidMu910UartBaud: Number(valueOrDefault(env, "RFID_MU910_UART_BAUD", "115200")),
+    rfidMu910ApiUrl: valueOrDefault(env, "RFID_MU910_API_URL", ""),
+    rfidMu910ApiToken: env.RFID_MU910_API_TOKEN?.trim() ?? "",
+    rfidMu910ReaderId: valueOrDefault(env, "RFID_MU910_READER_ID", "mu910-gateway"),
   };
 }
