@@ -281,3 +281,34 @@ test("dashboard API errors retain the backend status and message", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("unauthorized API requests trigger a generic in-memory access-reset event", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const events: Event[] = [];
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      dispatchEvent(event: Event) {
+        events.push(event);
+        return true;
+      },
+    } as unknown as Window,
+  });
+  globalThis.fetch = async () =>
+    Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    await assert.rejects(loadDashboard("do-not-expose-this-token"));
+    assert.ok(events.length > 0);
+    assert.ok(events.every((event) => event.type === "shopsystem:unauthorized"));
+    assert.ok(events.every((event) => !("detail" in event)));
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindow) {
+      Object.defineProperty(globalThis, "window", originalWindow);
+    } else {
+      delete (globalThis as { window?: Window }).window;
+    }
+  }
+});

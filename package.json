@@ -29,6 +29,7 @@
     "build": "tsc && node scripts/copy-migrations.mjs",
     "web:dev": "vite --config web/vite.config.ts",
     "web:build": "vite build --config web/vite.config.ts",
+    "dev:all": "bash scripts/dev.sh",
     "web:typecheck": "tsc --noEmit -p web/tsconfig.json",
     "cf601:scan": "python3 scripts/cf601_usb.py",
     "test:cf601": "python3 -m unittest discover -s test -p 'cf601_usb_test.py' -v",

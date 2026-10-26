@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ProductCatalogPanel, TagAssignmentsPanel, QuickTagRegister } from "./catalog-panels.tsx";
+import { GuideScreen, LoginScreen, ReadersScreen, SettingsScreen } from "./support-screens.tsx";
 import {
   ApiRequestError,
-  bindTag,
   closeInventorySession,
   createInventoryMovement,
-  createProduct,
   loadDashboard,
   loadInventorySessionReport,
   startInventorySession,
-  unbindTag,
-  updateProduct,
   type DashboardData,
   type InventorySession,
   type InventorySessionReport,
@@ -17,10 +15,9 @@ import {
   type InventoryMovementType,
   type InventoryRow,
   type ScanEvent,
-  type Tag,
 } from "../api.ts";
 
-type LoadState = "loading" | "ready" | "error";
+export type LoadState = "loading" | "ready" | "error";
 
 const numberFormat = new Intl.NumberFormat("en");
 const dateFormat = new Intl.DateTimeFormat("en", {
@@ -154,214 +151,6 @@ function InventoryTable({ rows, limit = 8 }: { rows: InventoryRow[]; limit?: num
         <div className="table-footnote">Showing {numberFormat.format(limit)} of {numberFormat.format(rows.length)} products</div>
       )}
     </div>
-  );
-}
-
-function ProductCatalogPanel({
-  products,
-  token,
-  onRefresh,
-}: {
-  products: DashboardData["products"];
-  token: string;
-  onRefresh: () => Promise<void>;
-}) {
-  const [sku, setSku] = useState("");
-  const [name, setName] = useState("");
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [editSku, setEditSku] = useState("");
-  const [editName, setEditName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const visibleProducts = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    return query
-      ? products.filter((product) =>
-        `${product.sku} ${product.name}`.toLocaleLowerCase().includes(query))
-      : products;
-  }, [products, search]);
-
-  async function addProduct(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setActionError(null);
-    try {
-      await createProduct(token, sku.trim(), name.trim());
-      setSku("");
-      setName("");
-      await onRefresh();
-    } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Could not add the product.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function beginEdit(product: DashboardData["products"][number]) {
-    setEditingProductId(product.id);
-    setEditSku(product.sku);
-    setEditName(product.name);
-    setActionError(null);
-  }
-
-  async function saveEdit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!editingProductId) return;
-
-    setBusy(true);
-    setActionError(null);
-    try {
-      await updateProduct(token, editingProductId, editSku.trim(), editName.trim());
-      setEditingProductId(null);
-      await onRefresh();
-    } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Could not update the product.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <section className="panel product-catalog-panel">
-      <div className="panel-heading">
-        <div>
-          <div className="section-kicker">PRODUCT MASTER DATA <span>02</span></div>
-          <h2>Product catalog</h2>
-          <p>Manage the names and SKUs used by inventory and RFID assignments.</p>
-        </div>
-        <div className="panel-count"><span className="count-square" />{products.length} PRODUCTS</div>
-      </div>
-
-      <form className="product-create-form" onSubmit={(event) => void addProduct(event)}>
-        <div className="product-form-intro">
-          <strong>Add a product</strong>
-          <span>Changes are saved to the local inventory database.</span>
-        </div>
-        <label>
-          <span>SKU</span>
-          <input
-            name="sku"
-            autoComplete="off"
-            maxLength={100}
-            placeholder="e.g. JACKET-042"
-            required
-            value={sku}
-            onChange={(event) => setSku(event.target.value)}
-          />
-        </label>
-        <label>
-          <span>Product name</span>
-          <input
-            name="name"
-            autoComplete="off"
-            maxLength={200}
-            placeholder="e.g. Utility field jacket"
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <button className="button button-bright" type="submit" disabled={busy || !sku.trim() || !name.trim()}>
-          Add product
-        </button>
-      </form>
-
-      {actionError && <div className="session-error" role="alert">{actionError}</div>}
-      <div className="catalog-search">
-        <label htmlFor="product-search">Search products</label>
-        <input
-          id="product-search"
-          type="search"
-          placeholder="Search by SKU or name"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <span>{visibleProducts.length} of {products.length}</span>
-      </div>
-
-      {editingProductId && (
-        <form className="product-edit-form" onSubmit={(event) => void saveEdit(event)}>
-          <div className="product-form-intro">
-            <strong>Edit product</strong>
-            <span>Existing inventory, tag assignments, and history remain attached.</span>
-          </div>
-          <label>
-            <span>SKU</span>
-            <input
-              name="editSku"
-              autoComplete="off"
-              maxLength={100}
-              required
-              value={editSku}
-              onChange={(event) => setEditSku(event.target.value)}
-            />
-          </label>
-          <label>
-            <span>Product name</span>
-            <input
-              name="editName"
-              autoComplete="off"
-              maxLength={200}
-              required
-              value={editName}
-              onChange={(event) => setEditName(event.target.value)}
-            />
-          </label>
-          <div className="product-edit-actions">
-            <button className="button button-bright" type="submit" disabled={busy || !editSku.trim() || !editName.trim()}>
-              Save changes
-            </button>
-            <button
-              className="button button-quiet"
-              type="button"
-              onClick={() => setEditingProductId(null)}
-              disabled={busy}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-
-      {products.length === 0 ? (
-        <div className="empty-state">
-          <span className="empty-mark" aria-hidden="true">＋</span>
-          <strong>Your catalog is ready for its first product</strong>
-          <p>Add a SKU and product name to start tracking stock.</p>
-        </div>
-      ) : visibleProducts.length === 0 ? (
-        <div className="compact-empty catalog-no-results">No products match “{search}”.</div>
-      ) : (
-        <div className="table-scroll">
-          <table className="product-catalog-table">
-            <thead>
-              <tr><th scope="col">SKU</th><th scope="col">Product name</th><th scope="col">Added</th><th scope="col">Action</th></tr>
-            </thead>
-            <tbody>
-              {visibleProducts.map((product) => (
-                <tr key={product.id}>
-                  <td className="mono">{product.sku}</td>
-                  <td><strong>{product.name}</strong></td>
-                  <td>{formatDate(product.createdAt)}</td>
-                  <td>
-                    <button
-                      className="button button-quiet session-action"
-                      type="button"
-                      onClick={() => beginEdit(product)}
-                      disabled={busy}
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <p className="data-note">Editing a product changes only its SKU and name. Stock movement and tag history are retained.</p>
-    </section>
   );
 }
 
@@ -649,201 +438,6 @@ function InventorySessionsPanel({
   );
 }
 
-function TagAssignmentsPanel({
-  tags,
-  products,
-  scans,
-  token,
-  onRefresh,
-}: {
-  tags: Tag[];
-  products: DashboardData["products"];
-  scans: ScanEvent[];
-  token: string;
-  onRefresh: () => Promise<void>;
-}) {
-  const [epc, setEpc] = useState("");
-  const [productId, setProductId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const productNames = useMemo(
-    () => new Map(products.map((product) => [product.id, product])),
-    [products],
-  );
-  const unassignedScans = useMemo(() => {
-    const assignedEpcs = new Set(tags.map((tag) => tag.epc));
-    const seenEpcs = new Set<string>();
-    return scans.filter((scan) => {
-      if (assignedEpcs.has(scan.epc) || seenEpcs.has(scan.epc)) return false;
-      seenEpcs.add(scan.epc);
-      return true;
-    });
-  }, [scans, tags]);
-
-  async function assignTag(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const normalizedEpc = epc.replace(/\s+/g, "").toUpperCase();
-    if (!/^[0-9A-F]{4,128}$/.test(normalizedEpc) || normalizedEpc.length % 2 !== 0) {
-      setActionError("EPC must be 2 to 64 bytes of hexadecimal data.");
-      return;
-    }
-    if (!productId) {
-      setActionError("Select a product before assigning this EPC.");
-      return;
-    }
-
-    setBusy(true);
-    setActionError(null);
-    try {
-      await bindTag(token, normalizedEpc, productId);
-      setEpc("");
-      await onRefresh();
-    } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Could not assign the EPC.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function removeAssignment(tag: Tag) {
-    const product = productNames.get(tag.productId);
-    if (!window.confirm(`Unassign EPC ${tag.epc} from ${product?.name ?? "this product"}?`)) {
-      return;
-    }
-
-    setBusy(true);
-    setActionError(null);
-    try {
-      await unbindTag(token, tag.epc);
-      await onRefresh();
-    } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Could not unassign the EPC.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <section className="panel tag-assignments-panel">
-      <div className="panel-heading">
-        <div>
-          <div className="section-kicker">TAG LIFECYCLE <span>03</span></div>
-          <h2>Assign EPC tags</h2>
-          <p>Bind a scanned EPC to a catalog product. This does not write to the physical tag.</p>
-        </div>
-        <div className="panel-count"><span className="count-square" />{tags.length} ASSIGNED</div>
-      </div>
-
-      <form className="tag-assignment-form" onSubmit={(event) => void assignTag(event)}>
-        <div className="tag-form-field">
-          <label htmlFor="tag-epc">Scanned EPC</label>
-          <input
-            id="tag-epc"
-            name="epc"
-            autoComplete="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            maxLength={128}
-            placeholder="E28068940000402C6FE3C0AE"
-            value={epc}
-            onChange={(event) => setEpc(event.target.value)}
-          />
-        </div>
-        <div className="tag-form-field">
-          <label htmlFor="tag-product">Product</label>
-          <select
-            id="tag-product"
-            name="productId"
-            value={productId}
-            onChange={(event) => setProductId(event.target.value)}
-          >
-            <option value="">Select a product</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.sku} · {product.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          className="button button-bright"
-          type="submit"
-          disabled={busy || !epc.trim() || !productId || products.length === 0}
-        >
-          Assign tag
-        </button>
-      </form>
-
-      {unassignedScans.length > 0 && (
-        <div className="unassigned-scans">
-          <div className="unassigned-scans-heading">
-            <strong>Recently read, unassigned EPCs</strong>
-            <span>Choose a read to fill the EPC field</span>
-          </div>
-          <ul>
-            {unassignedScans.slice(0, 5).map((scan) => (
-              <li key={scan.epc}>
-                <span className="mono">{scan.epc}</span>
-                <span>{scan.readerId} · {formatDate(scan.observedAt)}</span>
-                <button
-                  className="button button-quiet session-action"
-                  type="button"
-                  onClick={() => {
-                    setEpc(scan.epc);
-                    setActionError(null);
-                  }}
-                  disabled={busy}
-                >
-                  Use EPC
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {products.length === 0 && (
-        <p className="data-note tag-note">Add a product before assigning a tag.</p>
-      )}
-      {actionError && <div className="session-error" role="alert">{actionError}</div>}
-
-      {tags.length === 0 ? (
-        <div className="compact-empty session-empty">No EPC tags are assigned yet.</div>
-      ) : (
-        <div className="table-scroll">
-          <table className="tag-assignment-table">
-            <thead>
-              <tr><th scope="col">EPC</th><th scope="col">Product</th><th scope="col">Assigned</th><th scope="col">Action</th></tr>
-            </thead>
-            <tbody>
-              {tags.map((tag) => {
-                const product = productNames.get(tag.productId);
-                return (
-                  <tr key={tag.epc}>
-                    <td className="mono">{tag.epc}</td>
-                    <td>{product ? `${product.sku} · ${product.name}` : "Product unavailable"}</td>
-                    <td>{formatDate(tag.createdAt)}</td>
-                    <td>
-                      <button
-                        className="button button-quiet session-action"
-                        type="button"
-                        onClick={() => void removeAssignment(tag)}
-                        disabled={busy}
-                      >
-                        Unassign
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-}
-
 type PageId = "overview" | "products" | "inventory" | "readers" | "settings" | "guide";
 
 const pageLabels: Record<PageId, string> = {
@@ -905,6 +499,7 @@ function InventoryMovementPanel({
   const [type, setType] = useState<InventoryMovementType>("receipt");
   const [quantityDelta, setQuantityDelta] = useState("");
   const [reference, setReference] = useState("");
+  const [movementId, setMovementId] = useState(() => globalThis.crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -928,7 +523,7 @@ function InventoryMovementPanel({
     setSuccess(null);
     try {
       await createInventoryMovement(token, {
-        movementId: globalThis.crypto.randomUUID(),
+        movementId,
         productId,
         type,
         quantityDelta: quantity,
@@ -937,6 +532,7 @@ function InventoryMovementPanel({
       const product = products.find((item) => item.id === productId);
       setQuantityDelta("");
       setReference("");
+      setMovementId(globalThis.crypto.randomUUID());
       setSuccess(`${movementLabel(type)} ${quantity > 0 ? "+" : ""}${quantity} unit${Math.abs(quantity) === 1 ? "" : "s"}${product ? ` for ${product.name}` : ""}.`);
       await onRefresh();
     } catch (reason) {
@@ -997,6 +593,10 @@ function InventoryMovementPanel({
               onChange={(event) => setReference(event.target.value)}
             />
           </label>
+          <label className="movement-id-field">
+            <span>Movement ID <small>retry-safe</small></span>
+            <input value={movementId} readOnly />
+          </label>
           <button className="button button-bright" type="submit" disabled={busy || products.length === 0}>
             {busy ? "Recording…" : "Record movement"}
           </button>
@@ -1037,146 +637,6 @@ function InventoryMovementPanel({
   );
 }
 
-function ReadersScreen() {
-  return (
-    <section className="panel information-panel">
-      <div className="panel-heading">
-        <div>
-          <div className="section-kicker">VERIFIED OPERATING NOTES <span>01</span></div>
-          <h2>CF-601 USB reader</h2>
-          <p>Experimental Linux workflow documented for the exact CF-601 / CF000701.</p>
-        </div>
-        <span className="reader-status">EXPERIMENTAL</span>
-      </div>
-      <div className="information-content">
-        <h3>Known workflow</h3>
-        <ol>
-          <li>Connect the CF-601 and confirm it is configured as <code>CDC_COM</code> and Active Mode (<code>WORKMODE=1</code>).</li>
-          <li>Install <code>libusb-1.0</code> and use the approved local device-node access policy.</li>
-          <li>Start the API and run a bounded scan with the documented reader ID: <code>npm run cf601:scan -- --duration 5 --reader-id cf601-cf000701</code>.</li>
-          <li>To ingest scans, add <code>--api-url http://127.0.0.1:3000/api/v1/scan-events</code>. If API auth is enabled, pass <code>API_TOKEN</code> to the scanner process securely.</li>
-        </ol>
-        <div className="reader-warning">
-          <strong>Limits & safety</strong>
-          <p>This Linux-specific tool is experimental, bounded to at most 60 seconds, and requires the vendor SDK for safe stop-on-exit. It reads scan events; it does not write EPCs or change reader settings. No other reader model or firmware is claimed as supported.</p>
-        </div>
-        <p className="data-note">For setup details and the model-specific SDK location, see the CF-601 section in README.</p>
-      </div>
-    </section>
-  );
-}
-
-function SettingsScreen({
-  apiOnline,
-  hasToken,
-  loadState,
-}: {
-  apiOnline: boolean;
-  hasToken: boolean;
-  loadState: LoadState;
-}) {
-  return (
-    <section className="panel information-panel">
-      <div className="panel-heading">
-        <div>
-          <div className="section-kicker">LOCAL CONNECTION <span>01</span></div>
-          <h2>Settings & access</h2>
-          <p>Connection status and safe configuration guidance. Runtime environment values are not editable here.</p>
-        </div>
-      </div>
-      <div className="settings-list">
-        <div><span>Inventory API</span><strong className={apiOnline ? "settings-good" : ""}>{apiOnline ? "Connected" : loadState === "loading" ? "Checking…" : "Unavailable"}</strong></div>
-        <div><span>Access in this tab</span><strong>{hasToken ? "Bearer token held in memory" : "No bearer token supplied"}</strong></div>
-        <div><span>Authentication model</span><strong>Shared API_TOKEN · not per-user</strong></div>
-      </div>
-      <div className="information-content settings-guidance">
-        <h3>Configure the local service</h3>
-        <p>Set API_TOKEN in the project’s machine-local <code>.env</code> file, then restart the API process. Keep that file private and out of source control. Use <code>.env.example</code> only as a credential-free reference.</p>
-        <p>When the API requires a token, enter it at login. It is kept only in page memory, sent over same-origin API requests, and cleared when you sign out or reload. Use HTTPS and trusted local access controls if the service is exposed beyond localhost.</p>
-        <p>These settings are informational: the dashboard cannot inspect or change the server’s environment configuration.</p>
-      </div>
-    </section>
-  );
-}
-
-function GuideScreen() {
-  return (
-    <section className="panel information-panel">
-      <div className="panel-heading">
-        <div>
-          <div className="section-kicker">QUICK START <span>01</span></div>
-          <h2>User guide / FAQ</h2>
-          <p>Everyday workflows for the local inventory system.</p>
-        </div>
-      </div>
-      <div className="faq-list">
-        <details open>
-          <summary>How do I log in?</summary>
-          <p>If the API requires access, enter the shared API_TOKEN configured by the operator. It is held in memory only, is not a user account, and disappears on reload or sign-out.</p>
-        </details>
-        <details>
-          <summary>How do I add or update a product?</summary>
-          <p>Open Products, create a unique SKU and name, or use Edit to change those fields. Product identity, inventory balance, and RFID assignment history stay intact.</p>
-        </details>
-        <details>
-          <summary>How do I change stock?</summary>
-          <p>Open Inventory and record a receipt, sale, write-off, or adjustment with a quantity delta. Receipts are positive; sales/write-offs are negative. Changes are written to the stock ledger.</p>
-        </details>
-        <details>
-          <summary>Do RFID reads change stock or write to a tag?</summary>
-          <p>No. Reads are observations only. Assign EPC maps a scanned code to a catalog product in this database; it never writes to a physical tag and does not change stock.</p>
-        </details>
-        <details>
-          <summary>How do I run a stocktake?</summary>
-          <p>In Overview, start an inventory session using the reader ID, run a bounded scan using that same ID, then close the session and review the report. A missing read is not proof that an item is absent.</p>
-        </details>
-      </div>
-    </section>
-  );
-}
-
-function LoginScreen({
-  tokenInput,
-  onChange,
-  onSubmit,
-  errorMessage,
-  loading,
-}: {
-  tokenInput: string;
-  onChange: (value: string) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  errorMessage: string | null;
-  loading: boolean;
-}) {
-  return (
-    <main className="login-shell">
-      <section className="login-panel">
-        <div className="login-brand"><PageMark /><span className="brand-name">psyalien<span>®</span><small>SHOP SYSTEM</small></span></div>
-        <div className="eyebrow"><span className="eyebrow-line" />LOCAL INVENTORY ACCESS</div>
-        <h1>Sign in<span className="heading-period">.</span></h1>
-        <p>Enter the shared API token configured for this local system. It is not a personal account or password.</p>
-        <form className="login-form" onSubmit={onSubmit}>
-          <label htmlFor="login-token">API token</label>
-          <input
-            id="login-token"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            required
-            value={tokenInput}
-            onChange={(event) => onChange(event.target.value)}
-          />
-          <button className="button button-bright" type="submit" disabled={loading || !tokenInput.trim()}>
-            {loading ? "Connecting…" : "Connect"}
-          </button>
-          {errorMessage && <span className="token-error" role="alert">{errorMessage}</span>}
-        </form>
-        <p className="login-note">Token remains in this tab’s memory only. It is cleared when you sign out or reload.</p>
-      </section>
-    </main>
-  );
-}
-
 export default function App() {
   const [activePage, setActivePage] = useState<PageId>("overview");
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -1189,8 +649,7 @@ export default function App() {
   const refreshGeneration = useRef(0);
 
   useEffect(() => {
-    const handleUnauthorized = (event: Event) => {
-      if ((event as CustomEvent<string>).detail !== activeToken) return;
+    const handleUnauthorized = () => {
       refreshGeneration.current += 1;
       setDashboard(null);
       setNeedsToken(true);
@@ -1201,7 +660,7 @@ export default function App() {
     };
     window.addEventListener("shopsystem:unauthorized", handleUnauthorized);
     return () => window.removeEventListener("shopsystem:unauthorized", handleUnauthorized);
-  }, [activeToken]);
+  }, []);
 
   const refresh = useCallback(async (token = activeToken) => {
     const generation = ++refreshGeneration.current;
@@ -1424,8 +883,10 @@ export default function App() {
                     token={activeToken}
                     onRefresh={refresh}
                   />
-                  <InventorySessionsPanel
-                    sessions={dashboard.sessions}
+                  <QuickTagRegister
+                    tags={dashboard.tags}
+                    products={dashboard.products}
+                    scans={dashboard.scans}
                     token={activeToken}
                     onRefresh={refresh}
                   />
@@ -1433,6 +894,11 @@ export default function App() {
                     tags={dashboard.tags}
                     products={dashboard.products}
                     scans={dashboard.scans}
+                    token={activeToken}
+                    onRefresh={refresh}
+                  />
+                  <InventorySessionsPanel
+                    sessions={dashboard.sessions}
                     token={activeToken}
                     onRefresh={refresh}
                   />
@@ -1473,6 +939,13 @@ export default function App() {
               {activePage === "products" && (
                 <>
                   <ProductCatalogPanel products={dashboard.products} token={activeToken} onRefresh={refresh} />
+                  <QuickTagRegister
+                    tags={dashboard.tags}
+                    products={dashboard.products}
+                    scans={dashboard.scans}
+                    token={activeToken}
+                    onRefresh={refresh}
+                  />
                   <TagAssignmentsPanel
                     tags={dashboard.tags}
                     products={dashboard.products}

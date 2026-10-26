@@ -25,58 +25,8 @@
   --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
-.movement-form {
-  grid-template-columns: 1fr 1fr;
-  padding-right: 14px;
-  padding-left: 14px;
-}
-
-.movement-form label:first-child,
-.movement-hint {
-  grid-column: 1 / -1;
-}
-
-.movement-form > button {
-  grid-column: 1 / -1;
-}
-
-.catalog-search {
-  flex-wrap: wrap;
-  padding-right: 14px;
-  padding-left: 14px;
-}
-
-.catalog-search input {
-  width: 100%;
-  order: 3;
-}
-
 * {
   box-sizing: border-box;
-}
-
-.movement-form {
-  grid-template-columns: 1fr;
-}
-
-.movement-form label:first-child,
-.movement-hint,
-.movement-form > button {
-  grid-column: auto;
-}
-
-.settings-list > div {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.settings-list strong {
-  text-align: left;
-}
-
-.login-panel {
-  padding: 25px 21px;
 }
 
 body {
@@ -1842,7 +1792,7 @@ h1 {
 
 .movement-form {
   display: grid;
-  grid-template-columns: minmax(190px, 1.3fr) minmax(140px, 0.8fr) minmax(130px, 0.7fr) minmax(170px, 1fr) auto;
+  grid-template-columns: minmax(190px, 1.3fr) minmax(140px, 0.8fr) minmax(130px, 0.7fr) minmax(170px, 1fr) minmax(220px, 1.1fr) auto;
   align-items: end;
   gap: 11px;
   padding: 0 20px 10px;
@@ -1882,6 +1832,12 @@ h1 {
   margin: -4px 0 0;
   color: #586c62;
   font-size: 11px;
+}
+
+.movement-id-field input {
+  color: #586c62;
+  font-family: var(--mono);
+  font-size: 10px;
 }
 
 .movement-success {
@@ -2260,6 +2216,43 @@ h1 {
     align-items: stretch;
     padding-right: 14px;
     padding-left: 14px;
+  }
+
+  .movement-form {
+    grid-template-columns: minmax(0, 1fr);
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .movement-form label:first-child,
+  .movement-hint,
+  .movement-form > button {
+    grid-column: auto;
+  }
+
+  .catalog-search {
+    flex-wrap: wrap;
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .catalog-search input {
+    width: 100%;
+    order: 3;
+  }
+
+  .settings-list > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .settings-list strong {
+    text-align: left;
+  }
+
+  .login-panel {
+    padding: 25px 21px;
   }
 
   .unassigned-scans {
